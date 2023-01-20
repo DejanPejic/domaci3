@@ -378,7 +378,7 @@ ssize_t timer_write(struct file *pfile, const char __user *buffer, size_t length
 		return -EFAULT;
 	buff[length] = '\0';
 
-	ret = sscanf(buff,"%s", upis);
+	ret = sscanf(buff, "%[^:^\n]s", upis);
 	if(ret == 1) //
 	{
 		if (!strcmp(upis, "start"))
