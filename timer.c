@@ -382,11 +382,13 @@ ssize_t timer_write(struct file *pfile, const char __user *buffer, size_t length
 	{
 		if (!strcmp(upis, "start"))
 		{
-			printk(KERN_INFO "xilaxitimer_write: Starting timer!\n");
+			start_timer();
+			printk(KERN_INFO "xilaxitimer_write: Start timer!\n");
 		}
 		else if (!strcmp(upis, "stop"))
 		{
-			printf("OKONCANJE!\n");
+			stop_timer();
+			printk(KERN_INFO "xilaxitimer_write: Stop timer!\n");
 		}
 		else
 		{
