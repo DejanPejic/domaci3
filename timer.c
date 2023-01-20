@@ -65,9 +65,9 @@ static struct timer_info *tp = NULL;
 //static int i_cnt = 0;
 
 static irqreturn_t xilaxitimer_isr(int irq,void*dev_id);
-static void setup_timer(unsigned int milliseconds);
-static void start_timer();
-static void stop_timer();
+static void setup_timer(u64 seconds);
+static void start_timer(void);
+static void stop_timer(void);
 static int timer_probe(struct platform_device *pdev);
 static int timer_remove(struct platform_device *pdev);
 int timer_open(struct inode *pinode, struct file *pfile);
@@ -188,7 +188,7 @@ static void setup_timer(u64 seconds)
 			tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
 }
 
-static void start_timer()
+static void start_timer(void)
 {
 	u32 data = 0;
 	
@@ -198,7 +198,7 @@ static void start_timer()
 			tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
 }
 
-static void stop_timer()
+static void stop_timer(void)
 {
 	u32 data = 0;
 	
@@ -315,7 +315,6 @@ int timer_close(struct inode *pinode, struct file *pfile)
 
 ssize_t timer_read(struct file *pfile, char __user *buffer, size_t length, loff_t *offset) 
 {
-	u32 data = 0;
 	u32 dd = 0;
 	u32 hh = 0;
 	u32 mm = 0;
@@ -362,7 +361,7 @@ ssize_t timer_read(struct file *pfile, char __user *buffer, size_t length, loff_
 ssize_t timer_write(struct file *pfile, const char __user *buffer, size_t length, loff_t *offset) 
 {
 	char buff[BUFF_SIZE];
-	char unos[16];
+	char upis[16];
 	
 	u64 sec = 0;
 	u32 dd = 0;
@@ -399,7 +398,7 @@ ssize_t timer_write(struct file *pfile, const char __user *buffer, size_t length
 			
 			sscanf(buff, "%*c%d%*c%d%*c%d", &hh, &mm, &ss);
 			
-			if ((ss >= 0 && ss <= 59) && (mm >= 0 && mm <= 59) && (hh >= 0 && h <= 23) && dd >= 0)
+			if ((ss >= 0 && ss <= 59) && (mm >= 0 && mm <= 59) && (hh >= 0 && hh <= 23) && dd >= 0)
 			{
 				printk(KERN_INFO "xilaxitimer_write: Setup timer for %dd %dh %dm %ds \n", dd, hh, mm, ss);
 				sec = ss + 60*mm + 3600*hh + 86400*dd;
