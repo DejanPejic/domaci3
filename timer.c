@@ -126,8 +126,8 @@ static irqreturn_t xilaxitimer_isr(int irq,void*dev_id)
 	//if (i_cnt>=i_num)
 	//{
 	printk(KERN_NOTICE "Isteklo vreme!\n");
-	data = ioread32(tp->base_addr + XIL_AXI_TIMER_TCSR_OFFSET);
-	iowrite32(data & ~(XIL_AXI_TIMER_CSR_ENABLE_TMR_MASK), tp->base_addr + XIL_AXI_TIMER_TCSR_OFFSET);
+	data = ioread32(tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
+	iowrite32(data & ~(XIL_AXI_TIMER_CSR_ENABLE_TMR_MASK), tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
 		//i_cnt = 0;
 	//}
 
@@ -369,8 +369,8 @@ ssize_t timer_write(struct file *pfile, const char __user *buffer, size_t length
 	u32 mm = 0;
 	u32 ss = 0;
 	u32 ret = 0;
-	
 	u32 data = 0;
+	u8 i;
 	
 	ret = copy_from_user(buff, buffer, length);
 	if(ret)
