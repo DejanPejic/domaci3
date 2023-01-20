@@ -369,7 +369,7 @@ ssize_t timer_write(struct file *pfile, const char __user *buffer, size_t length
 	u32 mm = 0;
 	u32 ss = 0;
 	u32 ret = 0;
-	u32 data = 0;
+
 	u8 i;
 	
 	ret = copy_from_user(buff, buffer, length);
