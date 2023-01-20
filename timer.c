@@ -346,13 +346,13 @@ ssize_t timer_read(struct file *pfile, char __user *buffer, size_t length, loff_
 	dd = tmp/86400;
 	
 	tmp = tmp % 86400;
-    hh = tmp/3600;
-    
-    tmp = tmp % 3600;
-    mm = tmp/60;
-    
-    tmp = tmp % 60;
-    ss = tmp;
+	hh = tmp/3600;
+	
+	tmp = tmp % 3600;
+	mm = tmp/60;
+	
+	tmp = tmp % 60;
+	ss = tmp;
 	
 	printk(KERN_INFO "%d:%d:%d:%d\n", dd, hh, mm, ss);
 	return 0;
