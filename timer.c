@@ -382,7 +382,7 @@ ssize_t timer_write(struct file *pfile, const char __user *buffer, size_t length
                 return -EFAULT;
         buff[length] = '\0';
 
-        ret = sscanf(buff, "%5[^ ]s", upis);
+        ret = sscanf(buff, "%5[^:^\n]s", upis);
 
         printk(KERN_INFO "%d\n", ret);
         if(ret == 1) //
