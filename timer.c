@@ -68,6 +68,7 @@ static struct timer_info *tp = NULL;
 
 static irqreturn_t xilaxitimer_isr(int irq,void*dev_id);
 static void setup_timer(u32 seconds);
+static void reset_timer(void);
 static void start_timer(void);
 static void stop_timer(void);
 static int timer_probe(struct platform_device *pdev);
@@ -122,16 +123,10 @@ static irqreturn_t xilaxitimer_isr(int irq,void*dev_id)
         iowrite32(data | XIL_AXI_TIMER_CSR_INT_OCCURED_MASK,
                        tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
 
-        // Increment number of interrupts that have occured
-        //i_cnt++;
-        // Disable Timer after i_num interrupts
-        //if (i_cnt>=i_num)
-        //{
         printk(KERN_NOTICE "Isteklo vreme!\n");
         data = ioread32(tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
         iowrite32(data & ~(XIL_AXI_TIMER_CSR_ENABLE_TMR_MASK), tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
-                //i_cnt = 0;
-        //}
+	reset_timer();
 
         return IRQ_HANDLED;
 }
@@ -145,10 +140,13 @@ static void setup_timer(u32 seconds)
         u32 timer1_load = 0;
         u32 data = 0;
         u64 tmp = 0;
-
+	
         tmp = mul_u32_u32(seconds, 100000000);
         timer0_load = tmp & 0x00000000ffffffff;
         timer1_load = tmp >> 32;
+	
+	printk(KERN_INFO "Timer setup:  timer0_load: %d, timer1_load: %d \n", timer0_load, timer1_load);
+
 
         // Disable timer0 while configuration is in progress
         data = ioread32(tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
@@ -180,7 +178,7 @@ static void setup_timer(u32 seconds)
         data = ioread32(tp->base_addr + XIL_AXI_TIMER1_TCSR_OFFSET);
         iowrite32(data | XIL_AXI_TIMER_CSR_LOAD_MASK,
                         tp->base_addr +
- XIL_AXI_TIMER0_TCSR_OFFSET);
+ XIL_AXI_TIMER1_TCSR_OFFSET);
 
         data = ioread32(tp->base_addr + XIL_AXI_TIMER1_TCSR_OFFSET);
         iowrite32(data & ~(XIL_AXI_TIMER_CSR_LOAD_MASK),
@@ -189,6 +187,39 @@ static void setup_timer(u32 seconds)
         // Enable interrupts, cascade and counting down, rest should be zero
         iowrite32(XIL_AXI_TIMER_CSR_ENABLE_INT_MASK | XIL_AXI_TIMER_CSR_CASC_MASK | XIL_AXI_TIMER_CSR_DOWN_COUNT_MASK,
                         tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
+}
+
+static void reset_timer(void)
+{
+	u32 res_value = 0;
+	u32 data;
+	
+	// Set reset value in load0 register
+        iowrite32(res_value, tp->base_addr + XIL_AXI_TIMER0_TLR_OFFSET);
+
+        // Set reset value in load1 register
+        iowrite32(res_value, tp->base_addr + XIL_AXI_TIMER1_TLR_OFFSET);
+
+	// Load reset value into counter0 from load0 register
+        data = ioread32(tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
+        iowrite32(data | XIL_AXI_TIMER_CSR_LOAD_MASK,
+                        tp->base_addr +
+ XIL_AXI_TIMER0_TCSR_OFFSET);
+
+        data = ioread32(tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
+        iowrite32(data & ~(XIL_AXI_TIMER_CSR_LOAD_MASK),
+                        tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
+
+        // Load reset value into counter1 from load1 register
+        data = ioread32(tp->base_addr + XIL_AXI_TIMER1_TCSR_OFFSET);
+        iowrite32(data | XIL_AXI_TIMER_CSR_LOAD_MASK,
+                        tp->base_addr +
+ XIL_AXI_TIMER1_TCSR_OFFSET);
+
+        data = ioread32(tp->base_addr + XIL_AXI_TIMER1_TCSR_OFFSET);
+        iowrite32(data & ~(XIL_AXI_TIMER_CSR_LOAD_MASK),
+                        tp->base_addr + XIL_AXI_TIMER1_TCSR_OFFSET);
+
 }
 
 static void start_timer(void)
@@ -272,6 +303,7 @@ static int timer_probe(struct platform_device *pdev)
         }
 
         printk(KERN_NOTICE "xilaxitimer_probe: Timer platform driver registered\n");
+	reset_timer();
         return 0;//ALL OK
 
 error3:
@@ -329,24 +361,35 @@ ssize_t timer_read(struct file *pfile, char __user *buffer, size_t length, loff_
         u32 low_data = 0;
         u64 content = 0;
         u64 remainder = 0;
-
-        // Stop Timer before reading
+	u32 data_tmp = 0;
+	
+        // Da li broji?
         data = ioread32(tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
-        iowrite32(data & ~(XIL_AXI_TIMER_CSR_ENABLE_TMR_MASK),
+	data_tmp = data & XIL_AXI_TIMER_CSR_ENABLE_TMR_MASK;
+	data_tmp >>= 7;
+	
+	// Ako broji, zaustavi ga dok ne iscite vrednost
+	if(data_tmp)
+	{
+        	iowrite32(data & ~(XIL_AXI_TIMER_CSR_ENABLE_TMR_MASK),
                         tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
+	}
 
         // Read value from counter0 register
         low_data = ioread32(tp->base_addr + XIL_AXI_TIMER0_TCR_OFFSET);
         // Read value from counter0 register
         high_data = ioread32(tp->base_addr + XIL_AXI_TIMER1_TCR_OFFSET);
 
-        // Start Timer after reading
-        data = ioread32(tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
-        iowrite32(data | XIL_AXI_TIMER_CSR_ENABLE_TMR_MASK,
+	// Ako je vec brojao, neka nastavi
+	if(data_tmp)
+        {	
+		data = ioread32(tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
+        	iowrite32(data | XIL_AXI_TIMER_CSR_ENABLE_TMR_MASK,
                         tp->base_addr + XIL_AXI_TIMER0_TCSR_OFFSET);
+	}
 
-        hd_tmp = high_data;
-        content =  (hd_tmp << 32) +  low_data;
+        hd_tmp = (u64) high_data;
+        content =  (hd_tmp << 32) + (u64) low_data;
 
         tmp = div64_u64(content, 100000000);
 
@@ -359,7 +402,8 @@ ssize_t timer_read(struct file *pfile, char __user *buffer, size_t length, loff_
         mm = div64_u64_rem(tmp, 60, &remainder);
         ss = remainder;
 
-        printk(KERN_INFO "%ld:%ld:%ld:%ld\n", dd, hh, mm, ss);
+        printk(KERN_INFO "%lld:%lld:%lld:%lld \n", dd, hh, mm, ss);
+	printk(KERN_INFO "Uspesno je procitana trenutna vrednost tajmera!\n");
         return 0;
 }
 
@@ -370,19 +414,20 @@ ssize_t timer_write(struct file *pfile, const char __user *buffer, size_t length
 
         u32 sec;
         u32 dd = 0;
-        u32 hh;
-        u32 mm;
-        u32 ss;
+        u32 hh = 0;
+        u32 mm = 0;
+        u32 ss = 0;
         u32 ret;
 
         u8 i;
+	u8 tmp = 0;
 
         ret = copy_from_user(buff, buffer, length);
         if(ret)
                 return -EFAULT;
         buff[length] = '\0';
 
-        ret = sscanf(buff, "%5[^:^\n]s", upis);
+        ret = sscanf(buff, "%12[^\n]s", upis);
 
         printk(KERN_INFO "%d\n", ret);
         if(ret == 1) //
@@ -401,14 +446,32 @@ ssize_t timer_write(struct file *pfile, const char __user *buffer, size_t length
                 {
                         for(i = 0; i <= strlen(upis) - 1; i++)
                         {
-                                dd *= 10;
-                                dd += upis[i] - '0';
+				if(upis[i] - ':' == 0)
+				{
+					tmp++;
+					continue;
+				}
+				
+				switch(tmp)
+				{
+					case 0:
+			 			dd *= 10;
+                                		dd += upis[i] - '0';
+						break;
+					case 1:
+ 						hh *= 10;
+                                		hh += upis[i] - '0';
+						break;
+					case 2:
+                                                mm *= 10;
+                                                mm += upis[i] - '0';
+						break;
+					default:
+                                                ss *= 10;
+                                                ss += upis[i] - '0';
+						break;
+				}
                         }
-
-                        sscanf(buff, "%*c%d:%d:%d", &hh, &mm, &ss);
-
-                        //printk(KERN_INFO "xilaxitimer_write: Setup timer for %dd %dh %dm %ds \n", dd, hh, mm, ss);
-
 
                         if ((ss >= 0 && ss <= 59) && (mm >= 0 && mm <= 59) && (hh >= 0 && hh <= 23) && dd >= 0)
                         {
